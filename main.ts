@@ -40,8 +40,13 @@ namespace splitScreen {
                 else {
                     const tm = game.currentScene().tileMap;
 
-                    const realOffsetX = Math.clamp(0, tm.areaWidth(), this.realCamera.sprite.x - 40);
-                    shiftScreen(this.realScreen, Math.min(realOffsetX - this.realCamera.offsetX, 80));
+                    if (this.realCamera.sprite) {
+                        const realOffsetX = Math.clamp(0, tm.areaWidth(), this.realCamera.sprite.x - 40);
+                        shiftScreen(this.realScreen, Math.min(realOffsetX - this.realCamera.offsetX, 80));
+                    }
+                    else {
+                        shiftScreen(this.realScreen, 40);
+                    }
 
                     const fakeOffsetX = Math.clamp(0, tm.areaWidth(), this.fakeCamera.sprite.x - 40);
 
