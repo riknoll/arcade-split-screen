@@ -169,7 +169,7 @@ namespace splitScreen {
         }
 
         protected renderCameraRegion(camera: CameraState, defaultRegion: CameraRegion, skipDraw: boolean) {
-            switch (camera.region || defaultRegion) {
+            switch (camera.region == undefined ? defaultRegion : camera.region) {
                 case CameraRegion.TopLeft:
                     this.renderCamera(camera, 0, 0, screen.width >> 1, screen.height >> 1, skipDraw)
                     break;
