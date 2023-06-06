@@ -10,6 +10,8 @@
         "assets.json"
     ],
     "testFiles": [
+        "testJres.jres",
+        "testTilemaps.ts",
         "test.ts"
     ],
     "targetVersions": {
