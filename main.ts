@@ -143,7 +143,10 @@ namespace splitScreen {
         }
 
         protected render(skipDraw = false) {
-            if (!this.enabled || this.isRendering) return;
+            if (this.isRendering) {
+                throw "cancelled";
+            }
+            if (!this.enabled) return;
 
             const toRender = this.cameras.filter(c => c.enabled);
 
@@ -253,7 +256,11 @@ namespace splitScreen {
             this.isRendering = true;
             // black magic
             game.currentScene().flags &= ~(scene.Flag.IsRendering)
-            game.currentScene().render();
+            try {
+                game.currentScene().render();
+            }
+            catch {
+            }
             this.isRendering = false;
 
             screen = this.realScreen;
