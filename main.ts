@@ -473,6 +473,9 @@ namespace splitScreen {
                 currentScene.allSprites.push(this.renderable);
             }
 
+            const realScreen = screen;
+            const realCamera = currentScene.camera;
+
             screen = this.image as ScreenImage;
             currentScene.camera = this;
 
@@ -490,8 +493,8 @@ namespace splitScreen {
                 this.isRendering = false;
                 SplitScreenCamera.currentRenderIsCamera = false;
 
-                screen = state().realScreen;
-                currentScene.camera = state().realCamera;
+                screen = realScreen;
+                currentScene.camera = realCamera;
             }
         }
 
@@ -529,12 +532,8 @@ namespace splitScreen {
 
     class SplitScreenState {
         instance: SplitScreenSprite;
-        realScreen: ScreenImage;
-        realCamera: scene.Camera;
 
         constructor() {
-            this.realCamera = game.currentScene().camera;
-            this.realScreen = screen;
             this.instance = new SplitScreenSprite();
         }
     }
