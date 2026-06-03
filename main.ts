@@ -80,15 +80,10 @@ namespace splitScreen {
 
     class SplitScreenSprite extends sprites.ExtendableSprite {
         cameras: CameraState[];
-        renderable: scene.Renderable;
-        isRendering: boolean;
         enabled: boolean;
         borderColor: number;
 
         splitScreenZIndex: number;
-
-        currentRenderIndex: number;
-
         defaultCamera: CameraState;
 
         constructor() {
@@ -101,8 +96,6 @@ namespace splitScreen {
             ];
 
             this.borderColor = 1;
-            this.isRendering = false;
-            this.currentRenderIndex = 0;
             this.setDimensions(screen.width, screen.height);
             this.left = 0;
             this.top = 0;
@@ -142,30 +135,25 @@ namespace splitScreen {
         }
 
         protected render(left: number, top: number, skipDraw = false) {
-            if (this.isRendering) {
-                return;
-            }
             if (!this.enabled) return;
 
             const toRender = this.cameras.filter(c => c.enabled);
 
             if (toRender.length === 1) {
-                if (!skipDraw) {
-                    if (!this.defaultCamera) {
-                        this.defaultCamera = new CameraState();
-                    }
-                    const sceneCamera = game.currentScene().camera;
-                    this.defaultCamera.camera.sprite = sceneCamera.sprite;
-                    if ((sceneCamera as any).shakeStartTime !== undefined) {
-                        this.defaultCamera.camera.shake(
-                            (sceneCamera as any).shakeAmplitude,
-                            (sceneCamera as any).shakeDuration
-                        )
-                    }
-
-                    this.defaultCamera.camera.update();
-                    toRender.unshift(this.defaultCamera);
+                if (!this.defaultCamera) {
+                    this.defaultCamera = new CameraState();
                 }
+                const sceneCamera = game.currentScene().camera;
+                this.defaultCamera.camera.sprite = sceneCamera.sprite;
+                if ((sceneCamera as any).shakeStartTime !== undefined) {
+                    this.defaultCamera.camera.shake(
+                        (sceneCamera as any).shakeAmplitude,
+                        (sceneCamera as any).shakeDuration
+                    )
+                }
+
+                this.defaultCamera.camera.update();
+                toRender.unshift(this.defaultCamera);
 
                 this.renderCameraRegion(toRender[0], CameraRegion.VerticalLeftHalf, left, top, skipDraw);
                 this.renderCameraRegion(toRender[1], CameraRegion.VerticalRightHalf, left, top, skipDraw);
@@ -273,9 +261,7 @@ namespace splitScreen {
 
             if (skipDraw) return;
 
-            this.isRendering = true;
             camera.camera.renderAtZIndex(this.splitScreenZIndex);
-            this.isRendering = false;
         }
 
         drawCamera(camera: CameraState) {
@@ -285,11 +271,20 @@ namespace splitScreen {
                 screen.drawRect(camera.renderLeft - 1, camera.renderTop - 1, camera.renderWidth + 2, camera.renderHeight + 2, this.borderColor)
             }
         }
+
+        destroy(effect?: effects.ParticleEffect, duration?: number): void {
+            super.destroy(effect, duration);
+            for (const camera of this.cameras) {
+                camera.camera.destroy();
+            }
+            if (this.defaultCamera) {
+                this.defaultCamera.camera.destroy();
+            }
+        }
     }
 
     class CameraViewSprite extends sprites.ExtendableSprite {
         protected camera: SplitScreenCamera;
-        protected isRendering: boolean;
         cameraZIndex: number;
         borderColor = 1;
 
@@ -330,19 +325,22 @@ namespace splitScreen {
         }
 
         draw(drawLeft: number, drawTop: number) {
-            if (this.isRendering || SplitScreenCamera.currentRenderIsCamera) {
+            if (SplitScreenCamera.currentRenderIsCamera) {
                 return;
             }
 
-            this.isRendering = true;
             this.camera.renderAtZIndex(this.cameraZIndex);
-            this.isRendering = false;
 
             screen.drawImage(this.camera.image, drawLeft, drawTop);
 
             if (this.borderColor) {
                 screen.drawRect(drawLeft - 1, drawTop - 1, this.width + 2, this.height + 2, this.borderColor)
             }
+        }
+
+        destroy(effect?: effects.ParticleEffect, duration?: number): void {
+            super.destroy(effect, duration);
+            this.camera.destroy();
         }
     }
 
@@ -689,7 +687,7 @@ namespace splitScreen {
     }
 
     //% blockId=splitscreen_getCameraProperty
-    //% block="camera $camera property $property"
+    //% block="camera $camera $property"
     //% camera.shadow=splitscreen_camerashadow
     //% weight=20
     //% group="Global"
@@ -729,7 +727,7 @@ namespace splitScreen {
     //% weight=90
     //% group="Camera View"
     export function cameraViewFollow(cameraView: Sprite, sprite: Sprite) {
-        assetCameraViewSprite(cameraView);
+        assertCameraViewSprite(cameraView);
         (cameraView as CameraViewSprite).cameraFollowSprite(sprite);
     }
 
@@ -740,7 +738,7 @@ namespace splitScreen {
     //% weight=80
     //% group="Camera View"
     export function centerCameraViewAt(cameraView: Sprite, x: number, y: number) {
-        assetCameraViewSprite(cameraView);
+        assertCameraViewSprite(cameraView);
         (cameraView as CameraViewSprite).cameraCenterAt(x, y);
     }
 
@@ -756,7 +754,7 @@ namespace splitScreen {
     //% weight=70
     //% group="Camera View"
     export function shakeCameraView(cameraView: Sprite, amplitude: number = 4, duration: number = 500) {
-        assetCameraViewSprite(cameraView);
+        assertCameraViewSprite(cameraView);
         (cameraView as CameraViewSprite).cameraShake(amplitude, duration);
     }
 
@@ -768,7 +766,7 @@ namespace splitScreen {
     //% weight=60
     //% group="Camera View"
     export function cameraViewSetZIndex(cameraView: Sprite, z: number) {
-        assetCameraViewSprite(cameraView);
+        assertCameraViewSprite(cameraView);
         (cameraView as CameraViewSprite).cameraZIndex = z;
     }
 
@@ -779,7 +777,7 @@ namespace splitScreen {
     //% weight=50
     //% group="Camera View"
     export function getCameraViewProperty(cameraView: Sprite, property: CameraProperty) {
-        assetCameraViewSprite(cameraView);
+        assertCameraViewSprite(cameraView);
         return (cameraView as CameraViewSprite).getCameraProperty(property);
     }
 
@@ -791,11 +789,11 @@ namespace splitScreen {
     //% weight=40
     //% group="Camera View"
     export function setCameraViewBorderColor(cameraView: Sprite, color: number) {
-        assetCameraViewSprite(cameraView);
+        assertCameraViewSprite(cameraView);
         (cameraView as CameraViewSprite).borderColor = color;
     }
 
-    function assetCameraViewSprite(sprite: Sprite) {
+    function assertCameraViewSprite(sprite: Sprite) {
         if (!(sprite instanceof CameraViewSprite)) {
             throw "sprite must be a camera view sprite";
         }
