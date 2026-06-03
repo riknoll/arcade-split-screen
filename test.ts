@@ -52,4 +52,7 @@ cameraView.top = 90;
 
 cameraView.z = 100;
 
+cameraView.sx = 2;
+cameraView.sy = 2
+
 splitScreen.cameraViewFollow(cameraView, s1);

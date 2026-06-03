@@ -296,7 +296,6 @@ namespace splitScreen {
             this.camera = new SplitScreenCamera();
             this.camera.setDimensions(width, height);
             this.setImage(this.camera.image);
-            this.setDimensions(width, height);
             this.x = screen.width >> 1;
             this.y = screen.height >> 1;
         }
@@ -331,8 +330,8 @@ namespace splitScreen {
 
             this.camera.renderAtZIndex(this.cameraZIndex);
 
-            screen.drawImage(this.camera.image, drawLeft, drawTop);
-
+            screen.fillRect(drawLeft, drawTop, this.width, this.height, 0);
+            super.draw(drawLeft, drawTop);
             if (this.borderColor) {
                 screen.drawRect(drawLeft - 1, drawTop - 1, this.width + 2, this.height + 2, this.borderColor)
             }
