@@ -3,7 +3,8 @@
     "version": "0.0.3",
     "description": "",
     "dependencies": {
-        "device": "*"
+        "device": "*",
+        "arcade-extension-utils": "github:riknoll/arcade-extension-utils#v0.1.0"
     },
     "files": [
         "main.ts",
