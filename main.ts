@@ -102,7 +102,6 @@ namespace splitScreen {
 
             this.borderColor = 1;
             this.isRendering = false;
-            this.enabled = true;
             this.currentRenderIndex = 0;
             this.setDimensions(screen.width, screen.height);
             this.left = 0;
@@ -127,6 +126,9 @@ namespace splitScreen {
         }
 
         draw(drawLeft: number, drawTop: number) {
+            if (SplitScreenCamera.currentRenderIsCamera) {
+                return;
+            }
             this.render(drawLeft, drawTop);
         }
 
@@ -289,9 +291,12 @@ namespace splitScreen {
         protected camera: SplitScreenCamera;
         protected isRendering: boolean;
         cameraZIndex: number;
+        borderColor = 1;
 
         constructor(width: number, height: number) {
             super(img`.`);
+            // make sure the global screen is saved
+            state();
             this.cameraZIndex = 99;
             this.camera = new SplitScreenCamera();
             this.camera.setDimensions(width, height);
@@ -308,8 +313,7 @@ namespace splitScreen {
 
         cameraCenterAt(x: number, y: number) {
             this.camera.sprite = undefined;
-            this.camera.offsetX = x - (this.image.width >> 1);
-            this.camera.offsetY = y - (this.image.height >> 1);
+            this.camera.centerAt(x, y);
             this.camera.update();
         }
 
@@ -326,7 +330,7 @@ namespace splitScreen {
         }
 
         draw(drawLeft: number, drawTop: number) {
-            if (this.isRendering) {
+            if (this.isRendering || SplitScreenCamera.currentRenderIsCamera) {
                 return;
             }
 
@@ -335,6 +339,10 @@ namespace splitScreen {
             this.isRendering = false;
 
             screen.drawImage(this.camera.image, drawLeft, drawTop);
+
+            if (this.borderColor) {
+                screen.drawRect(drawLeft - 1, drawTop - 1, this.width + 2, this.height + 2, this.borderColor)
+            }
         }
     }
 
@@ -343,10 +351,10 @@ namespace splitScreen {
         renderable: scene.Renderable;
         isRendering: boolean;
 
+        static currentRenderIsCamera = false;
+
         constructor() {
             super();
-            // init the screen
-            state();
             this.image = screen;
 
             this.renderable = scene.createRenderable(0, () => {
@@ -354,10 +362,7 @@ namespace splitScreen {
             })
         }
 
-        get offsetX() {
-            return this._offsetX;
-        }
-        set offsetX(v: number) {
+        setOffsetX(v: number) {
             const scene = game.currentScene();
             if (scene.tileMap && scene.tileMap.enabled) {
                 this._offsetX = Math.floor(
@@ -367,10 +372,7 @@ namespace splitScreen {
                 this._offsetX = Math.floor(v);
             }
         }
-        get offsetY() {
-            return this._offsetY;
-        }
-        set offsetY(v: number) {
+        setOffsetY(v: number) {
             const scene = game.currentScene();
             if (scene.tileMap && scene.tileMap.enabled) {
                 this._offsetY = Math.floor(
@@ -396,8 +398,8 @@ namespace splitScreen {
 
         centerAt(x: number, y: number) {
             this.sprite = undefined;
-            this.offsetX = x - (this.image.width >> 1);
-            this.offsetY = y - (this.image.height >> 1);
+            this.setOffsetX(x - (this.image.width >> 1));
+            this.setOffsetY(y - (this.image.height >> 1));
         }
 
         update() {
@@ -405,8 +407,12 @@ namespace splitScreen {
             if (this.sprite) {
                 this._lastUpdatedSpriteX = this.sprite.x;
                 this._lastUpdatedSpriteY = this.sprite.y;
-                this.offsetX = this.sprite.left + (this.sprite.width >> 1) - (this.image.width >> 1);
-                this.offsetY = this.sprite.top + (this.sprite.height >> 1) - (this.image.height >> 1);
+                this.setOffsetX(this.sprite.left + (this.sprite.width >> 1) - (this.image.width >> 1));
+                this.setOffsetY(this.sprite.top + (this.sprite.height >> 1) - (this.image.height >> 1));
+            }
+            else {
+                this.setOffsetX(this._offsetX);
+                this.setOffsetY(this._offsetY);
             }
 
             this.drawOffsetX = this._offsetX;
@@ -452,6 +458,8 @@ namespace splitScreen {
             this.image.fill(0);
             this.renderable.z = z;
 
+            this.update();
+
             const currentScene = game.currentScene();
             currentScene.allSprites.removeElement(this.renderable);
 
@@ -472,6 +480,7 @@ namespace splitScreen {
             currentScene.camera = this;
 
             this.isRendering = true;
+            SplitScreenCamera.currentRenderIsCamera = true;
             // black magic
             currentScene.flags &= ~(scene.Flag.IsRendering)
             try {
@@ -482,6 +491,7 @@ namespace splitScreen {
             }
             finally {
                 this.isRendering = false;
+                SplitScreenCamera.currentRenderIsCamera = false;
 
                 screen = state().realScreen;
                 currentScene.camera = state().realCamera;
@@ -526,8 +536,8 @@ namespace splitScreen {
         realCamera: scene.Camera;
 
         constructor() {
-            this.realScreen = screen;
             this.realCamera = game.currentScene().camera;
+            this.realScreen = screen;
             this.instance = new SplitScreenSprite();
         }
     }
@@ -547,6 +557,7 @@ namespace splitScreen {
     //% block="split screen camera follow $sprite"
     //% deprecated=1
     export function splitScreenCameraFollow(sprite: Sprite) {
+        initGlobalInstance();
         cameraFollowSprite(Camera.Camera1, sprite);
     }
 
@@ -561,6 +572,7 @@ namespace splitScreen {
     //% weight=100
     //% group="Global"
     export function cameraFollowSprite(camera: number, sprite: Sprite) {
+        initGlobalInstance();
         state().instance.cameras[camera].camera.sprite = sprite;
         state().instance.cameras[camera].enabled = true;
         state().instance.cameras[camera].camera.update();
@@ -575,6 +587,7 @@ namespace splitScreen {
     //% weight=90
     //% group="Global"
     export function centerCameraAt(camera: number, x: number, y: number) {
+        initGlobalInstance();
         const cameraState = state().instance.cameras[camera];
         (cameraState.camera as SplitScreenCamera).centerAt(x, y);
         cameraState.enabled = true;
@@ -594,6 +607,7 @@ namespace splitScreen {
     //% weight=80
     //% group="Global"
     export function cameraShake(camera: number, amplitude: number = 4, duration: number = 500) {
+        initGlobalInstance();
         const cameraState = state().instance.cameras[camera];
         cameraState.camera.shake(amplitude, duration);
         cameraState.enabled = true;
@@ -609,6 +623,7 @@ namespace splitScreen {
     //% weight=70
     //% group="Global"
     export function setCameraRegion(camera: number, region: number) {
+        initGlobalInstance();
         state().instance.cameras[camera].region = region;
     }
 
@@ -620,6 +635,7 @@ namespace splitScreen {
     //% weight=60
     //% group="Global"
     export function setSplitScreenEnabled(enabled: boolean) {
+        initGlobalInstance();
         state().instance.enabled = enabled;
     }
 
@@ -633,6 +649,7 @@ namespace splitScreen {
     //% weight=50
     //% group="Global"
     export function setBorderColor(color: number) {
+        initGlobalInstance();
         state().instance.borderColor = color;
     }
 
@@ -658,6 +675,7 @@ namespace splitScreen {
     //% weight=40
     //% group="Global"
     export function setSplitScreenZIndex(z: number) {
+        initGlobalInstance();
         state().instance.splitScreenZIndex = z;
     }
 
@@ -666,6 +684,7 @@ namespace splitScreen {
     //% weight=30
     //% group="Global"
     export function getSprite(): Sprite {
+        initGlobalInstance();
         return state().instance;
     }
 
@@ -675,6 +694,7 @@ namespace splitScreen {
     //% weight=20
     //% group="Global"
     export function getCameraProperty(camera: number, property: CameraProperty) {
+        initGlobalInstance();
         return state().instance.getCameraProperty(camera, property);
     }
 
@@ -685,11 +705,13 @@ namespace splitScreen {
     //% weight=10
     //% group="Global"
     export function setRenderSize(width: number, height: number) {
+        initGlobalInstance();
         state().instance.setRenderSize(width, height);
     }
 
     //% blockId=splitscreen_createCameraView
-    //% block="create camera view sprite with width $width height $height"
+    //% block="create camera view sprite width $width height $height"
+    //% blockSetVariable=myCameraView
     //% width.defl=160
     //% height.defl=120
     //% weight=100
@@ -761,9 +783,28 @@ namespace splitScreen {
         return (cameraView as CameraViewSprite).getCameraProperty(property);
     }
 
+    //% blockId=splitscreen_setCameraViewBorderColor
+    //% block="set $cameraView border color $color"
+    //% cameraView.shadow=variables_get
+    //% cameraView.defl=myCameraView
+    //% color.shadow=colorindexpicker
+    //% weight=40
+    //% group="Camera View"
+    export function setCameraViewBorderColor(cameraView: Sprite, color: number) {
+        assetCameraViewSprite(cameraView);
+        (cameraView as CameraViewSprite).borderColor = color;
+    }
+
     function assetCameraViewSprite(sprite: Sprite) {
         if (!(sprite instanceof CameraViewSprite)) {
             throw "sprite must be a camera view sprite";
+        }
+    }
+
+    function initGlobalInstance() {
+        const instance = state().instance;
+        if (instance && instance.enabled === undefined) {
+            instance.enabled = true;
         }
     }
 }
